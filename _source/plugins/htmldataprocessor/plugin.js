@@ -384,6 +384,14 @@ For licensing, see LICENSE.html or http://ckeditor.com/license
 			});
 	}
 
+	// Replace all "on\w{3,}" strings which are not:
+	// * opening tags - e.g. `<onfoo`,
+	// * closing tags - e.g. </onfoo> (tested in "false positive 1"),
+	// * part of other attribute - e.g. `data-onfoo` or `fonfoo`.
+	function protectInsecureAttributes( html ) {
+		return html.replace( /([^a-z0-9<\-])(on\w{3,})(?!>)/gi, '$1data-cke-' + CKEDITOR.rnd + '-$2' );
+	}
+
 	function unprotectRealComments( html )
 	{
 		return html.replace( /<!--\{cke_protected\}\{C\}([\s\S]+?)-->/g, function( match, data )
@@ -535,6 +543,10 @@ For licensing, see LICENSE.html or http://ckeditor.com/license
 			// eat it up. (#5789)
 			data = protectPreFormatted( data );
 
+			// There are attributes which may execute JavaScript code inside fixBin.
+			// Encode them greedily. They will be unprotected right after getting HTML from fixBin. (#10)
+			data = protectInsecureAttributes( data );
+
 			// Call the browser to help us fixing a possibly invalid HTML
 			// structure.
 			var div = new CKEDITOR.dom.element( 'div' );
@@ -544,7 +556,7 @@ For licensing, see LICENSE.html or http://ckeditor.com/license
 			data = div.getHtml().substr( 1 );
 
 			// Restore shortly protected attribute names.
-			data = data.replace( new RegExp( ' data-cke-' + CKEDITOR.rnd + '-', 'ig' ), ' ' );
+			data = data.replace( new RegExp( 'data-cke-' + CKEDITOR.rnd + '-', 'ig' ), '' );
 
 			// Unprotect "some" of the protected elements at this point.
 			data = unprotectElementNames( data );
